@@ -9,7 +9,6 @@ data FuncType = Multiply
               | Division
               | Subtraction
 
-type V = [Char]
 
 data Expression = Expression { func::String
                              , parameters::String
@@ -18,23 +17,6 @@ data Expression = Expression { func::String
 
 instance Show Expression where
     show exp = "func: " ++ func exp ++ ", " ++ "value: " ++ parameters exp
-
-
-
-
-parseP expr depth (x:xs) = case x of
-                                '(' -> do expr : parseP expr' (depth + 1) xs
-                                ')' -> do
-                                        if depth == 1
-                                        then expr' : parseP "" depth xs
-                                        else parseP expr' (depth - 1) xs
-                                ' ' -> parseP expr depth xs
-                                _ -> parseP expr' depth xs
-                                where
-                                    expr' = expr ++ [x]
-
-
-parseP _ _ _ = []
 
 parseLexms = parseLexms' ""
 parseLexms' lexm (x:xs) = case x of
@@ -68,25 +50,39 @@ typeOfLexem lexm = case lexm of
                                 then "var"
                                 else "value"
 
+removeItem _ []                 = []
+removeItem x (y:ys) | x == y    = removeItem x ys
+                    | otherwise = y : removeItem x ys
 
-findParentheses :: t -> [Char] -> [Char] -> [Char]
-findParentheses str foundExp (x:xs) = do 
-                                        if x == '('
-                                        then do
-                                            --foundExp' <- x : foundExp
-                                            findParentheses str foundExp xs
-                                        else
-                                            findParentheses str foundExp xs
 
-                                        if [')'] `in'` foundExp
-                                            then foundExp ++ findParentheses str foundExp ""
-                                            else findParentheses str foundExp xs
+findParentheses = removeItem "" . findParentheses' False [""] "" 0
 
-findParentheses _ _ _ = []
+findParentheses' :: Bool -> [String] -> String -> Integer -> String -> [String]
+findParentheses' foundParenthese foundExps currentExp countParenthese (x:xs) = do
+    if x == ' '
+    then findParentheses' foundParenthese foundExps (currentExp ++ [x])  countParenthese xs
+    else
+        if x == '('
+        then findParentheses' True foundExps (currentExp ++ [x])  (countParenthese + 1) xs
+        else
+            if x == ')'
+            then
+                if countParenthese == 1
+                    then ((currentExp ++ [x]) : foundExps) ++ findParentheses' False foundExps "" (countParenthese - 1) xs
+                    else findParentheses' False foundExps (currentExp ++ [x])  (countParenthese - 1) xs
+            else
+                if foundParenthese
+                    then findParentheses' foundParenthese foundExps (currentExp ++ [x])  countParenthese xs
+                    else findParentheses' foundParenthese foundExps currentExp  countParenthese xs
 
-str = "(a * (a + b))"
+findParentheses' _ _ _ _ _  = []
+
+
+
+str = "1+1*(a+(2+6))*sin(1)+1+(1+1)+1+(1+2+1+(1+2))"
 main :: IO()
 main = do
-    print $ findParentheses str "" str
+    print str
+    print $ findParentheses str
     print $ parseLexms str
     print . map typeOfLexem $ parseLexms str
